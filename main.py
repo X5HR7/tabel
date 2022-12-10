@@ -77,10 +77,8 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
                             #ws_base._get_cell(row=curr_str+offset[time], column=teacher_num+3).value = group
                             curr_cell = ws_base._get_cell(row=curr_str+offset[time], column=teacher_num+3)
                             if curr_cell.value == None:
-                                print(group)
                                 curr_cell.value = group
                             else:
-                                print(group)
                                 curr_cell.value = curr_cell.value+f'\n{group}'
         #wb_base.save(filename='tabel.xlsx')
 
