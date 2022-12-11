@@ -68,4 +68,4 @@ def rename(string: str):
         return ''.join([s for s in string]) 
 
 
-print(get_names(path=r"resources\tables\RASPISANIE.xlsx"))
+print(len(get_names(path=r"resources\tables\RASPISANIE.xlsx")))
