@@ -1,8 +1,9 @@
 from docx import Document
 from openpyxl import load_workbook
-
 from calendar import monthrange, weekday
 from teachers_list import teachers_list
+from glob import glob
+
 import time
 import shutil
 
@@ -62,25 +63,71 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
                             #время пары
                             time = del_all_spaces(ws_gen._get_cell(row=cell.row, column=2).value)
                             #название группы
-                            group = get_group(del_spaces(ws_gen._get_cell(row=cell.row-1-offset[time], column=cell.column).value))
+                            group = get_group_name(get_group(del_spaces(ws_gen._get_cell(row=cell.row-1-offset[time], column=cell.column).value)))
                             #день недели
                             #day = del_spaces(ws_gen._get_cell(row=cell.row-offset[time], column=1).value)
                             #определяет, есть ли разделение пар по неделям
+                            curr_cell = ws_base._get_cell(row=curr_str+offset[time], column=teacher_num+3)
                             if '1н' in value_ed or '2н' in value_ed:
                                 values = del_spaces(value).split('2 н')
                                 if len(values) == 1:
                                     values = value.split('2н')
                                 #если пара с номером недели в расписании не соответсвует номеру нужной недели, изменения не вносятся, ячейка пропускается
-                                if (teacher not in values[0] and week_num == 1) or (teacher not in values[1] and week_num == 2):
-                                    break
-                            
-                            #ws_base._get_cell(row=curr_str+offset[time], column=teacher_num+3).value = group
-                            curr_cell = ws_base._get_cell(row=curr_str+offset[time], column=teacher_num+3)
-                            if curr_cell.value == None:
-                                curr_cell.value = group
+                                if (teacher in values[0] and week_num == '1') or (teacher in values[1] and week_num == '2'):
+                                    if curr_cell.value == None:
+                                        curr_cell.value = f'{group}\n'
+                                    else:
+                                        curr_cell.value = curr_cell.value+f'{group}\n'
                             else:
-                                curr_cell.value = curr_cell.value+f'\n{group}'
-        #wb_base.save(filename='tabel.xlsx')
+                                if curr_cell.value == None:
+                                    curr_cell.value = f'{group}\n'
+                                else:
+                                    curr_cell.value = curr_cell.value+f'{group}\n'
+            if i+1 < 10:
+                curr_date = f'0{i+1}.{date[0]}.{date[1]}'
+            else:
+                curr_date = f'{i+1}.{date[0]}.{date[1]}'
+            if curr_date in doc_tables:
+                for doc_row in doc_tables[curr_date].rows:
+                    cells_list = doc_row.cells
+                    text_3 = del_spaces(cells_list[3].text)
+                    text_5 = del_spaces(cells_list[5].text)
+
+                    if teacher in text_3.split() and text_3 != text_5:
+                        #получаем группу из word документа для которой есть замена 
+                        group_curr = f'{cells_list[1].text.split()[0]} - {cells_list[1].text.split()[-1]}'
+                        #получаем список групп по расписанию из конечной таблицы
+                        curr_cell_w = ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3)
+                        group_list = curr_cell_w.value
+
+                        if group_list != None:
+                            group_list = group_list.split('\n')
+                        else:
+                            group_list = ''
+
+                        #убираем группу из расписания
+                        if group_curr in group_list:
+                            group_list.remove(group_curr)
+                            text = '\n'.join(group for group in group_list if group != '')
+                            ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3).value = f'{text}\n'
+
+                    elif teacher in text_5.split() and text_3 != text_5:
+                        #получаем группу из word документа для которой есть замена 
+                        group_curr = f'{cells_list[1].text.split()[0]} - {cells_list[1].text.split()[-1]}'
+                        #получаем список групп по расписанию из конечной таблицы
+                        if '-' not in cells_list[0].text:
+                            curr_cell_w = ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3)
+                            group_list = curr_cell_w.value
+                        else:
+                            curr_cell_w = ws_base._get_cell(row=curr_str+int(cells_list[0].text.split('-')[0])-1, column=teacher_num+3)
+                            group_list = curr_cell_w.value
+
+                        if group_list != None and '-' not in cells_list[0].text:
+                            ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3).value = group_list+f'{group_curr}\n'
+                        elif '-' in cells_list[0].text:
+                            pass
+                        else:
+                            ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3).value = f'{group_curr}\n'
 
         if day_num == 6:
             day_num = 0
@@ -125,9 +172,33 @@ def get_group(group_name: str) -> str:
     group = group_name.split('(')[-1]
     return group[:-1]
 
+def get_group_name(group_name:str) -> str:
+    if '-' not in group_name:
+        return f'{group_name.split()[0]} - {group_name.split()[1]}'
+    else:
+        return group_name
+
+
+def get_doc_tables_dict() -> dict:
+    files_amount = len(glob(r'resources\docs\*.docx'))
+
+    for doc_num in range(files_amount):
+        doc = Document(f'resources\docs\{doc_num+1}.docx')
+        tables = doc.tables
+
+        if len(tables) >= 6:
+            tables = tables[:-1]
+
+        for table_num in range(len(tables)):
+            table = tables[table_num]
+            date = doc.paragraphs[paragraphs[table_num]].text.split()[0]
+            doc_tables[date] = table
+        
 
 def main():
     s = time.time()
+    get_doc_tables_dict()
+    #print(doc_tables)
     script(gen_excel_table_path=r'resources\tables\RASPISANIE.xlsx', document_path=r'resources\docs\1.docx')
     print(time.time()-s)
 
@@ -136,6 +207,7 @@ offset = {'08.45-10.15': 0, '10.30-12.00': 1, '12.40-14.10': 2, '14.20-15.50': 3
 paragraphs = [3, 10, 18, 26, 34]
 week_days = {0: 'понедельник', 1: 'вторник', 2: 'среда', 3: 'четверг', 4: 'пятница', 5: 'суббота', 6: 'воскресенье'}
 days_strs = {'понедельник': 13, 'вторник': 20, 'среда': 26, 'четверг': 32, 'пятница': 39, 'суббота': 45}
+doc_tables = {}
 
 
 main()
