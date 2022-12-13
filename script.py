@@ -1,5 +1,5 @@
 from docx import Document
-from openpyxl import load_workbook, Workbook
+from openpyxl import load_workbook
 from calendar import monthrange, weekday
 from teachers_list import teachers_list
 from glob import glob
@@ -25,9 +25,6 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
 
     wb_base = load_workbook(filename='tabel.xlsx')
     ws_base = wb_base.active
-
-    wb_ch = load_workbook(filename=r'resources\tables\changes.xlsx')
-    ws_ch = wb_ch.active
 
     last_full_column = 2
 
@@ -61,9 +58,15 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
                         value = str(cell.value)
                         value_ed = del_all_spaces(value)
 
+                        #проверка наличия ключевого слова в ячейке (фамилия преподавателя)
                         if teacher in value.split():
+                            #время пары
                             time = del_all_spaces(ws_gen._get_cell(row=cell.row, column=2).value)
+                            #название группы
                             group = get_group_name(get_group(del_spaces(ws_gen._get_cell(row=cell.row-1-offset[time], column=cell.column).value)))
+                            #день недели
+                            #day = del_spaces(ws_gen._get_cell(row=cell.row-offset[time], column=1).value)
+                            #определяет, есть ли разделение пар по неделям
                             curr_cell = ws_base._get_cell(row=curr_str+offset[time], column=teacher_num+3)
                             if '1н' in value_ed or '2н' in value_ed:
                                 values = del_spaces(value).split('2 н')
@@ -81,39 +84,47 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
                 curr_date = f'0{i+1}.{date[0]}.{date[1]}'
             else:
                 curr_date = f'{i+1}.{date[0]}.{date[1]}'
-            
-            if curr_date in dates: 
-                for row_index in range(dates[curr_date][0], dates[curr_date][1]):
-                    if teacher in str(ws_ch._get_cell(row=row_index, column=5).value).split() and ws_ch._get_cell(row=row_index, column=5).value != ws_ch._get_cell(row=row_index, column=7).value:
-                        group_curr = ws_ch._get_cell(row=row_index, column=3).value.split()
-                        group_curr = f'{group_curr[0]} - {group_curr[-1]}'
-                        lesson_num = ws_ch._get_cell(row=row_index, column=2).value
-                        group_list = ws_base._get_cell(row=curr_str+int(lesson_num)-1, column=teacher_num+3).value
-                        
+            if curr_date in doc_tables:
+                for doc_row in doc_tables[curr_date].rows:
+                    cells_list = doc_row.cells
+                    text_3 = del_spaces(cells_list[3].text)
+                    text_5 = del_spaces(cells_list[5].text)
+
+                    if teacher in text_3.split() and text_3 != text_5:
+                        #получаем группу из word документа для которой есть замена 
+                        group_curr = f'{cells_list[1].text.split()[0]} - {cells_list[1].text.split()[-1]}'
+                        #получаем список групп по расписанию из конечной таблицы
+                        curr_cell_w = ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3)
+                        group_list = curr_cell_w.value
+
                         if group_list != None:
                             group_list = group_list.split('\n')
                         else:
                             group_list = ''
 
+                        #убираем группу из расписания
                         if group_curr in group_list:
                             group_list.remove(group_curr)
                             text = '\n'.join(group for group in group_list if group != '')
-                            ws_base._get_cell(row=curr_str+int(lesson_num)-1, column=teacher_num+3).value = f'{text}\n'
+                            ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3).value = f'{text}\n'
 
-                    elif teacher in str(ws_ch._get_cell(row=row_index, column=7).value).split() and ws_ch._get_cell(row=row_index, column=5).value != ws_ch._get_cell(row=row_index, column=7).value:
-                        group_curr = ws_ch._get_cell(row=row_index, column=3).value.split()
-                        group_curr = f'{group_curr[0]} - {group_curr[-1]}'
-                        if '-' not in str(ws_ch._get_cell(row=row_index, column=2).value):
-                            lesson_num = ws_ch._get_cell(row=row_index, column=2).value
-                            group_list = ws_base._get_cell(row=curr_str+int(lesson_num)-1, column=teacher_num+3).value
+                    elif teacher in text_5.split() and text_3 != text_5:
+                        #получаем группу из word документа для которой есть замена 
+                        group_curr = f'{cells_list[1].text.split()[0]} - {cells_list[1].text.split()[-1]}'
+                        #получаем список групп по расписанию из конечной таблицы
+                        if '-' not in cells_list[0].text:
+                            curr_cell_w = ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3)
+                            group_list = curr_cell_w.value
                         else:
-                            #!!!!!!!!!!!!!!!!!! -> Номер пары f в формате X-Y
-                            continue    
+                            curr_cell_w = ws_base._get_cell(row=curr_str+int(cells_list[0].text.split('-')[0])-1, column=teacher_num+3)
+                            group_list = curr_cell_w.value
 
-                        if group_list != None:
-                            ws_base._get_cell(row=curr_str+int(lesson_num)-1, column=teacher_num+3).value = group_list+f'{group_curr}\n'
+                        if group_list != None and '-' not in cells_list[0].text:
+                            ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3).value = group_list+f'{group_curr}\n'
+                        elif '-' in cells_list[0].text:
+                            pass
                         else:
-                            ws_base._get_cell(row=curr_str+int(lesson_num)-1, column=teacher_num+3).value = f'{group_curr}\n'
+                            ws_base._get_cell(row=curr_str+int(cells_list[0].text)-1, column=teacher_num+3).value = f'{group_curr}\n'
 
         if day_num == 6:
             day_num = 0
@@ -128,7 +139,7 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
         wb_gen.close()
 
 
-def get_start_day(document_path: str) -> tuple:
+def get_start_day(document_path: str):
     doc = Document(document_path)
 
     for num in paragraphs:
@@ -139,7 +150,7 @@ def get_start_day(document_path: str) -> tuple:
             days = monthrange(year=int(date.split('.')[-1]), month=int(date.split('.')[1]))
             return days[1], text[1], date, days[0]
 
-def get_day(date: str, week_num: str) -> str:
+def get_day(date: str, week_num: str):
     day = week_days[weekday(year=int(date.split('.')[-1]), month=int(date.split('.')[1]), day=int(date.split('.')[0]))]
     return f'{date}\n({day} {week_num}н)'
 
@@ -179,40 +190,12 @@ def get_doc_tables_dict() -> dict:
             table = tables[table_num]
             date = doc.paragraphs[paragraphs[table_num]].text.split()[0]
             doc_tables[date] = table
-
-def docx_to_excel() -> None:
-    wb = Workbook()
-    ws = wb.active
-
-    ex_row = 0
-    ex_col = 1
-
-    for date in doc_tables:
-        table = doc_tables[date]
-        start_ex_row = ex_row
-        for doc_row in table.rows:
-            ex_row += 1
-            for doc_cell in doc_row.cells:
-                ex_col += 1
-                text = str(doc_cell.text)
-                ws._get_cell(row=ex_row, column=1).value = str(date)
-
-                if '=' not in text and text != '7' and text != '8':
-                    if '.' in text:
-                        text = text.replace('.', '. ')
-                    ws._get_cell(row=ex_row, column=ex_col).value = str(text)
-                else:
-                    ws._get_cell(row=ex_row, column=ex_col).value = '-'
-            ex_col = 1
-        dates[date] = [start_ex_row+1, ex_row+1]
-    else: 
-        wb.save(r'resources\tables\changes.xlsx')
-        wb.close() 
+        
 
 def main():
     s = time.time()
     get_doc_tables_dict()
-    docx_to_excel()
+    #print(doc_tables)
     script(gen_excel_table_path=r'resources\tables\RASPISANIE.xlsx', document_path=r'resources\docs\1.docx')
     print(time.time()-s)
 
@@ -221,6 +204,7 @@ offset = {'08.45-10.15': 0, '10.30-12.00': 1, '12.40-14.10': 2, '14.20-15.50': 3
 paragraphs = [3, 10, 18, 26, 34]
 week_days = {0: 'понедельник', 1: 'вторник', 2: 'среда', 3: 'четверг', 4: 'пятница', 5: 'суббота', 6: 'воскресенье'}
 days_strs = {'понедельник': 13, 'вторник': 20, 'среда': 26, 'четверг': 32, 'пятница': 39, 'суббота': 45}
-doc_tables = teachers_list_dict = dates = {}
+doc_tables = {}
+
 
 main()
