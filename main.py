@@ -4,6 +4,8 @@ from calendar import monthrange, weekday
 from teachers_list import teachers_list
 from glob import glob
 
+from data import week_days, days_strs, offset
+
 import time
 import shutil
 
@@ -99,6 +101,7 @@ def script(gen_excel_table_path: str, document_path: str) -> None:
                             group_list.remove(group_curr)
                             text = '\n'.join(group for group in group_list if group != '')
                             ws_base._get_cell(row=curr_str+int(lesson_num)-1, column=teacher_num+3).value = f'{text}\n'
+                            
 
                     elif teacher in str(ws_ch._get_cell(row=row_index, column=7).value).split() and ws_ch._get_cell(row=row_index, column=5).value != ws_ch._get_cell(row=row_index, column=7).value:
                         group_curr = ws_ch._get_cell(row=row_index, column=3).value.split()
@@ -226,10 +229,6 @@ def main():
     print(time.time()-s)
 
 
-offset = {'08.45-10.15': 0, '10.30-12.00': 1, '12.40-14.10': 2, '14.20-15.50': 3, '16.00-17.30': 4, '17.40-19.10': 5}
-paragraphs = [3, 10, 18, 26, 34]
-week_days = {0: 'понедельник', 1: 'вторник', 2: 'среда', 3: 'четверг', 4: 'пятница', 5: 'суббота', 6: 'воскресенье'}
-days_strs = {'понедельник': 13, 'вторник': 20, 'среда': 26, 'четверг': 32, 'пятница': 39, 'суббота': 45}
-doc_tables = teachers_list_dict = dates = {}
+
 
 main()
