@@ -135,9 +135,18 @@ def get_start_day(document_path: str) -> tuple:
         text = doc.paragraphs[num].text.split()
         date = text[0]
 
-        if '01' in date:
+        if '01' == date.split('.')[0]:
             days = monthrange(year=int(date.split('.')[-1]), month=int(date.split('.')[1]))
             return days[1], text[1], date, days[0]
+    else:
+        for num in paragraphs:
+            text = doc.paragraphs[num].text.split()
+            date = text[0]
+
+            if '02' == date.split('.')[0]:
+                days = monthrange(year=int(date.split('.')[-1]), month=int(date.split('.')[1]))
+                return days[1], text[1], date, days[0]
+
 
 def get_day(date: str, week_num: str) -> str:
     day = week_days[weekday(year=int(date.split('.')[-1]), month=int(date.split('.')[1]), day=int(date.split('.')[0]))]
